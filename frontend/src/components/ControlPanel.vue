@@ -40,6 +40,10 @@ function onParticleCount(e: Event) {
 function onDt(e: Event) {
   store.updateParam('dt', parseFloat((e.target as HTMLInputElement).value))
 }
+
+function onScreenshot() {
+  store.requestScreenshot()
+}
 </script>
 
 <template>
@@ -86,6 +90,25 @@ function onDt(e: Event) {
         class="flex-1 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-gray-200 py-2 rounded text-sm transition"
       >
         单步
+      </button>
+    </div>
+
+    <!-- Screenshot -->
+    <div class="flex gap-2">
+      <button
+        @click="onScreenshot"
+        class="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2 rounded text-sm font-medium transition"
+      >
+        📷 截图
+      </button>
+      <button
+        @click="store.toggleAutoCapture()"
+        class="flex-1 py-2 rounded text-sm font-medium transition"
+        :class="store.autoCapture
+          ? 'bg-amber-600 hover:bg-amber-500 text-white'
+          : 'bg-gray-700 hover:bg-gray-600 text-gray-200'"
+      >
+        {{ store.autoCapture ? '⏺ 自动中' : '⏸ 自动' }}
       </button>
     </div>
 

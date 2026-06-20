@@ -1,14 +1,32 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { useFluidStore } from './store/fluid'
 import { PRESETS } from './utils/sph-engine'
 import FluidCanvas from './components/FluidCanvas.vue'
 import ControlPanel from './components/ControlPanel.vue'
+import ScreenshotTimeline from './components/ScreenshotTimeline.vue'
 
 const store = useFluidStore()
 
+function onKeyDown(e: KeyboardEvent) {
+  if (store.isReviewing) {
+    if (e.key === 'ArrowLeft') {
+      store.prevScreenshot()
+    } else if (e.key === 'ArrowRight') {
+      store.nextScreenshot()
+    } else if (e.key === 'Escape') {
+      store.exitReview()
+    }
+  }
+}
+
 onMounted(() => {
   store.initSimulation(PRESETS[0])
+  window.addEventListener('keydown', onKeyDown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeyDown)
 })
 </script>
 
@@ -22,13 +40,14 @@ onMounted(() => {
 
     <!-- Main Content -->
     <div class="flex flex-1 overflow-hidden p-4 gap-4">
-      <!-- Left: Canvas -->
-      <div class="flex-1 flex flex-col items-start gap-2">
+      <!-- Left: Canvas + Timeline -->
+      <div class="flex-1 flex flex-col gap-3 min-w-0">
         <FluidCanvas />
+        <ScreenshotTimeline />
       </div>
 
       <!-- Right: Controls -->
-      <div class="flex-shrink-0">
+      <div class="flex-shrink-0 h-full">
         <ControlPanel />
       </div>
     </div>

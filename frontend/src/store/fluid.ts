@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { SPHEngine, DEFAULT_PARAMS, PRESETS } from '../utils/sph-engine'
-import type { SimParams, Preset, Particle } from '../types'
+import type { SimParams, Preset, Particle, ScreenshotItem } from '../types'
 
 export const useFluidStore = defineStore('fluid', {
   state: () => ({
@@ -15,6 +15,13 @@ export const useFluidStore = defineStore('fluid', {
     _lastTime: 0,
     _fpsAccum: 0,
     _fpsFrames: 0,
+    screenshots: [] as ScreenshotItem[],
+    autoCapture: false,
+    autoCaptureInterval: 60,
+    _screenshotIdCounter: 0,
+    currentReviewIndex: -1,
+    isReviewing: false,
+    _screenshotRequestCount: 0,
   }),
   getters: {
     particleArray: (state) => state.engine?.particles ?? [],
@@ -95,6 +102,84 @@ export const useFluidStore = defineStore('fluid', {
           this.engine['cellSize'] = value
         }
       }
+    },
+    addScreenshot(dataUrl: string, label?: string) {
+      this._screenshotIdCounter++
+      const item: ScreenshotItem = {
+        id: this._screenshotIdCounter,
+        dataUrl,
+        frame: this.frameCount,
+        timestamp: Date.now(),
+        label: label || `截图 ${this.screenshots.length + 1}`,
+      }
+      this.screenshots.push(item)
+    },
+    removeScreenshot(id: number) {
+      const idx = this.screenshots.findIndex(s => s.id === id)
+      if (idx >= 0) {
+        this.screenshots.splice(idx, 1)
+        if (this.isReviewing && this.currentReviewIndex >= this.screenshots.length) {
+          this.currentReviewIndex = this.screenshots.length - 1
+          if (this.currentReviewIndex < 0) {
+            this.isReviewing = false
+          }
+        }
+      }
+    },
+    clearScreenshots() {
+      this.screenshots = []
+      this.isReviewing = false
+      this.currentReviewIndex = -1
+    },
+    toggleAutoCapture() {
+      this.autoCapture = !this.autoCapture
+    },
+    requestScreenshot() {
+      this._screenshotRequestCount++
+    },
+    setAutoCaptureInterval(frames: number) {
+      this.autoCaptureInterval = Math.max(1, frames)
+    },
+    startReview(index: number) {
+      if (this.screenshots.length === 0) return
+      this.currentReviewIndex = Math.max(0, Math.min(index, this.screenshots.length - 1))
+      this.isReviewing = true
+      if (this.isRunning) {
+        this.stop()
+      }
+    },
+    prevScreenshot() {
+      if (this.currentReviewIndex > 0) {
+        this.currentReviewIndex--
+      }
+    },
+    nextScreenshot() {
+      if (this.currentReviewIndex < this.screenshots.length - 1) {
+        this.currentReviewIndex++
+      }
+    },
+    exitReview() {
+      this.isReviewing = false
+      this.currentReviewIndex = -1
+    },
+    updateScreenshotLabel(id: number, label: string) {
+      const item = this.screenshots.find(s => s.id === id)
+      if (item) {
+        item.label = label
+      }
+    },
+    exportScreenshot(id: number) {
+      const item = this.screenshots.find(s => s.id === id)
+      if (!item) return
+      const link = document.createElement('a')
+      link.download = `fluid-${item.frame}f-${item.label}.png`
+      link.href = item.dataUrl
+      link.click()
+    },
+    exportAllScreenshots() {
+      this.screenshots.forEach((s, i) => {
+        setTimeout(() => this.exportScreenshot(s.id), i * 200)
+      })
     },
   },
 })

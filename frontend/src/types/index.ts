@@ -29,3 +29,11 @@ export interface Preset {
   particleCount: number;
   initialConfig: 'dam' | 'drop' | 'fountain' | 'wave';
 }
+
+export interface ScreenshotItem {
+  id: number;
+  dataUrl: string;
+  frame: number;
+  timestamp: number;
+  label: string;
+}

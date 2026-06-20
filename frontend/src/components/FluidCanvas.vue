@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import { useFluidStore } from '../store/fluid'
 
 const store = useFluidStore()
@@ -7,6 +7,20 @@ const canvas = ref<HTMLCanvasElement | null>(null)
 
 const W = 800
 const H = 500
+
+const currentReviewScreenshot = computed(() => {
+  if (!store.isReviewing || store.currentReviewIndex < 0) return null
+  return store.screenshots[store.currentReviewIndex] || null
+})
+
+watch(
+  () => store._screenshotRequestCount,
+  () => {
+    if (store._screenshotRequestCount > 0) {
+      nextTick(() => takeScreenshot())
+    }
+  }
+)
 
 function velocityToColor(speed: number): string {
   // Blue (slow) -> Green (medium) -> Red (fast)
@@ -21,6 +35,16 @@ function velocityToColor(speed: number): string {
 function draw() {
   const ctx = canvas.value?.getContext('2d')
   if (!ctx) return
+
+  if (store.isReviewing && currentReviewScreenshot.value) {
+    const img = new Image()
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, W, H)
+      drawReviewOverlay(ctx)
+    }
+    img.src = currentReviewScreenshot.value.dataUrl
+    return
+  }
 
   // Clear
   ctx.fillStyle = '#0c1222'
@@ -99,7 +123,43 @@ function draw() {
   ctx.fillStyle = '#94a3b8'
   ctx.font = '11px monospace'
   ctx.fillText(`Frame: ${store.frameCount}`, W - 114, 44)
+
+  if (store.autoCapture && store.isRunning) {
+    checkAutoCapture()
+  }
 }
+
+function drawReviewOverlay(ctx: CanvasRenderingContext2D) {
+  const shot = currentReviewScreenshot.value
+  if (!shot) return
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
+  ctx.fillRect(10, 10, 200, 50)
+  ctx.fillStyle = '#fbbf24'
+  ctx.font = 'bold 12px monospace'
+  ctx.fillText('回看模式', 20, 30)
+  ctx.fillStyle = '#94a3b8'
+  ctx.font = '10px monospace'
+  ctx.fillText(`${shot.label} · 帧 ${shot.frame}`, 20, 50)
+}
+
+let _lastCaptureFrame = -1
+function checkAutoCapture() {
+  if (store.frameCount > 0 && store.frameCount % store.autoCaptureInterval === 0 && store.frameCount !== _lastCaptureFrame) {
+    _lastCaptureFrame = store.frameCount
+    takeScreenshot()
+  }
+}
+
+function takeScreenshot(label?: string): string | null {
+  if (!canvas.value) return null
+  const dataUrl = canvas.value.toDataURL('image/png')
+  store.addScreenshot(dataUrl, label)
+  return dataUrl
+}
+
+defineExpose({ takeScreenshot })
+
 
 let raf: number | null = null
 function animate() {
